@@ -1,0 +1,22 @@
+# Node
+node_modules/
+dist/
+
+# SQLite runtime data
+*.db
+*.db-*
+
+# Playwright
+/e2e/playwright-report/
+/e2e/test-results/
+/e2e/blob-report/
+
+# k6 output
+/load/k6-summary.json
+
+# Env
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db

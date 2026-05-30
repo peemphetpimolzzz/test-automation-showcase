@@ -1,0 +1,56 @@
+# Test overlay. Use together with the base compose file:
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm unit
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm apitest
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm e2e
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm k6
+name: test-automation-showcase
+
+services:
+  # Unit tests reuse the SUT build stage (devDependencies + sources present) and
+  # run fully offline against pure domain logic and zod schemas.
+  unit:
+    build:
+      context: ./sut
+      target: build
+    environment:
+      CI: "true"
+    command: ["npm", "run", "test:unit"]
+
+  # API + contract tests: supertest against the in-process Express app with a
+  # fresh :memory: SQLite database per test. Also reuses the build stage, offline.
+  # Named "apitest" (not "api") so it does not merge with the base "api" service.
+  apitest:
+    build:
+      context: ./sut
+      target: build
+    environment:
+      CI: "true"
+    command: ["npm", "run", "test:api"]
+
+  # End-to-end: Playwright drives a real browser against the running web + api stack.
+  e2e:
+    build:
+      context: ./e2e
+    environment:
+      BASE_URL: http://web:80
+      API_BASE: http://web:80
+    depends_on:
+      web:
+        condition: service_healthy
+    volumes:
+      - ./e2e/playwright-report:/e2e/playwright-report
+      - ./e2e/test-results:/e2e/test-results
+
+  # Smoke load test against the API over the compose network.
+  k6:
+    image: grafana/k6:0.55.0
+    user: "0:0"
+    environment:
+      BASE_URL: http://api:3000
+      SUMMARY_PATH: /load/k6-summary.json
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./load:/load
+    command: ["run", "/load/smoke.js"]

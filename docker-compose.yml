@@ -1,0 +1,47 @@
+name: test-automation-showcase
+
+services:
+  api:
+    build:
+      context: ./sut
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_FILE: /data/tasks.db
+      # Gate the test-only reset endpoint. Enabled here so e2e can reset state;
+      # turn it off for a real deployment.
+      ENABLE_TEST_RESET: "${ENABLE_TEST_RESET:-1}"
+    volumes:
+      - api-data:/data
+    ports:
+      # Uncommon host port to avoid clashes; container always listens on 3000.
+      - "${API_PORT:-8090}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  web:
+    build:
+      context: ./web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8091}:80"
+    healthcheck:
+      # busybox-safe: plain GET, loopback IP, no --spider.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  api-data:
