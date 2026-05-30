@@ -6,6 +6,13 @@ the application exists to be tested in every meaningful way, from pure functions
 to a browser and a load generator, all runnable with a single Docker command per
 layer.
 
+[![CI](https://github.com/peemphetpimolzzz/test-automation-showcase/actions/workflows/ci.yml/badge.svg)](https://github.com/peemphetpimolzzz/test-automation-showcase/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+| Task Board (system under test) | Playwright report — all green |
+|--------------------------------|-------------------------------|
+| ![Task board](docs/screenshots/board.png) | ![Test report](docs/screenshots/report.png) |
+
 ## The system under test
 
 A **Tasks API** (Node.js + TypeScript + Express) backed by **better-sqlite3**, plus a
