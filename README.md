@@ -102,6 +102,17 @@ load profile and threshold rationale.
 parallel, then e2e and load against the built stack, uploading the Playwright report
 and k6 summary as artifacts.
 
+## Deploy to AWS
+
+The system-under-test also runs in the cloud on **AWS ECS Fargate** behind an Application
+Load Balancer. Infrastructure is defined as Terraform in [`infra/`](infra/), and the
+[`Deploy (AWS)`](.github/workflows/deploy.yml) workflow builds the image, pushes it to ECR,
+and rolls out a new task revision — authenticating with **GitHub OIDC**, so no long-lived
+AWS keys live in the repo. The reset endpoint is disabled (`ENABLE_TEST_RESET=0`) in the
+deployed task.
+
+See [`docs/deployment.md`](docs/deployment.md) for the full walkthrough.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
