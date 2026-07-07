@@ -54,6 +54,16 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Open 443 so the optional HTTPS listener (created when certificate_arn is set)
+  # is reachable. Harmless when TLS is disabled — nothing listens on 443.
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -260,10 +270,15 @@ resource "aws_ecs_service" "api" {
     ignore_changes = [task_definition]
   }
 
-  # Wait for the execution role's ECR-pull/logs permissions before ECS
-  # schedules a task (IAM is eventually consistent).
+  # Wait for whichever listener associates the target group with the ALB —
+  # the HTTP listener forwards to it by default, but when certificate_arn is set
+  # the HTTP listener only redirects and the HTTPS listener is the one that
+  # forwards. Without depending on both, ECS can create the service before the
+  # target group is associated and fail with "does not have an associated load
+  # balancer". Also wait for the execution role's ECR-pull/logs permissions.
   depends_on = [
     aws_lb_listener.http,
+    aws_lb_listener.https,
     aws_iam_role_policy_attachment.execution_managed,
   ]
 
