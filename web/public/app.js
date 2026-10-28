@@ -53,14 +53,18 @@ function render(tasks) {
     badge.type = 'button';
     badge.textContent = task.status;
     badge.title = 'Click to cycle status';
-    badge.addEventListener('click', () => cycleStatus(task));
+    badge.addEventListener('click', () => {
+      cycleStatus(task).catch((err) => alert(err.message));
+    });
 
     const del = document.createElement('button');
     del.className = 'delete';
     del.dataset.testid = 'task-delete';
     del.type = 'button';
     del.textContent = 'Delete';
-    del.addEventListener('click', () => deleteTask(task.id));
+    del.addEventListener('click', () => {
+      deleteTask(task.id).catch((err) => alert(err.message));
+    });
 
     li.append(title, badge, del);
     list.append(li);

@@ -17,7 +17,7 @@ export function createApp(options: AppOptions = {}): Express {
 
   const store = new TaskStore(dbFile);
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '64kb' }));
 
   const startedAt = Date.now();
   app.get('/api/health', (_req, res) => {

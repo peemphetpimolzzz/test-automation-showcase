@@ -104,7 +104,7 @@ and k6 summary as artifacts.
 
 ## Deploy to AWS
 
-The system-under-test also runs in the cloud on **AWS ECS Fargate** behind an Application
+The Tasks API (system-under-test) also runs in the cloud on **AWS ECS Fargate** behind an Application
 Load Balancer. Infrastructure is defined as Terraform in [`infra/`](infra/), and the
 [`Deploy (AWS)`](.github/workflows/deploy.yml) workflow builds the image, pushes it to ECR,
 and rolls out a new task revision — authenticating with **GitHub OIDC**, so no long-lived
@@ -115,4 +115,4 @@ See [`docs/deployment.md`](docs/deployment.md) for the full walkthrough.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE) — Part of [Peem Phetpimol's portfolio](https://peemphetpimolzzz.github.io) (Fullstack & Cloud Engineer · Test Automation).

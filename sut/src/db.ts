@@ -65,4 +65,8 @@ export class TaskStore {
   reset(): void {
     this.db.exec('DELETE FROM tasks');
   }
+
+  close(): void {
+    this.db.close();
+  }
 }
