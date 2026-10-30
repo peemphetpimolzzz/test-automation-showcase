@@ -1,13 +1,41 @@
-// Minimal vanilla-JS Task Board. Talks to /api on the same origin (nginx proxies
-// /api to the API container). Kept dependency-free so the page needs no build step.
+// Minimal vanilla-JS Task Board (PulseBoard). Talks to /api on the same origin
+// (nginx proxies /api to the API container). Kept dependency-free so the page
+// needs no build step.
 
 const API = '/api';
 const STATUS_ORDER = ['todo', 'doing', 'done'];
+const LAYER_TAGS = ['P0 · E2E', 'P1 · CONTRACT', 'P1 · PERF', 'P2 · DAST'];
+
+const DEMO_FALLBACK_TASKS = [
+  {
+    id: 101,
+    title: 'Verify Playwright POM checkout & task lifecycle journeys in headless Chromium',
+    status: 'done',
+  },
+  {
+    id: 102,
+    title: 'Enforce strict Zod & Ajv response contract validation across /api/tasks endpoints',
+    status: 'doing',
+  },
+  {
+    id: 103,
+    title: 'Benchmark k6 smoke & ramp-up load profile under p95 < 200ms latency threshold',
+    status: 'doing',
+  },
+  {
+    id: 104,
+    title: 'Audit OWASP ZAP baseline security headers and disable /api/_reset in AWS ECS task',
+    status: 'todo',
+  },
+];
 
 const form = document.getElementById('add-form');
 const input = document.getElementById('title-input');
 const list = document.getElementById('task-list');
 const emptyState = document.getElementById('empty-state');
+
+let currentTasks = [];
+let activeFilter = 'all';
 
 function nextStatus(status) {
   const index = STATUS_ORDER.indexOf(status);
@@ -33,14 +61,31 @@ async function api(path, options) {
 }
 
 function render(tasks) {
+  currentTasks = tasks;
   list.innerHTML = '';
-  emptyState.hidden = tasks.length > 0;
 
-  for (const task of tasks) {
+  const filtered = tasks.filter((t) => {
+    if (activeFilter === 'active') return t.status !== 'done';
+    if (activeFilter === 'done') return t.status === 'done';
+    return true;
+  });
+
+  emptyState.hidden = filtered.length > 0;
+
+  filtered.forEach((task, idx) => {
     const li = document.createElement('li');
-    li.className = 'task';
+    li.className = 'task task-item';
     li.dataset.id = task.id;
     li.dataset.testid = 'task';
+
+    const key = document.createElement('span');
+    key.className = 'task-key';
+    const numericId = typeof task.id === 'number' ? task.id : 101 + idx;
+    key.textContent = `PUL-${numericId}`;
+
+    const tag = document.createElement('span');
+    tag.className = 'task-meta-tag';
+    tag.textContent = LAYER_TAGS[idx % LAYER_TAGS.length];
 
     const title = document.createElement('span');
     title.className = 'task-title';
@@ -58,7 +103,7 @@ function render(tasks) {
     });
 
     const del = document.createElement('button');
-    del.className = 'delete';
+    del.className = 'delete delete-btn';
     del.dataset.testid = 'task-delete';
     del.type = 'button';
     del.textContent = 'Delete';
@@ -66,9 +111,9 @@ function render(tasks) {
       deleteTask(task.id).catch((err) => alert(err.message));
     });
 
-    li.append(title, badge, del);
+    li.append(key, tag, title, badge, del);
     list.append(li);
-  }
+  });
 }
 
 async function load() {
@@ -106,6 +151,46 @@ form.addEventListener('submit', async (event) => {
   }
 });
 
+// Theme & language controls
+const themeBtn = document.getElementById('theme-toggle');
+if (themeBtn) {
+  themeBtn.addEventListener('click', () => {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+}
+
+const langToggle = document.getElementById('lang-toggle');
+if (langToggle) {
+  langToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-lang]');
+    if (!btn) return;
+    const lang = btn.dataset.lang;
+    langToggle.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+    const sub = document.getElementById('board-subtitle');
+    if (sub) {
+      sub.textContent =
+        lang === 'th'
+          ? 'ระบบบริหารจัดการงานสปรินต์พร้อมเกตตรวจสอบคุณภาพอัตโนมัติ (Playwright E2E, Supertest API, Contract และ k6)'
+          : 'Interactive system-under-test (SUT) driven by Playwright E2E, Supertest API, and k6 load suites.';
+    }
+  });
+}
+
+const filterPills = document.getElementById('filter-pills');
+if (filterPills) {
+  filterPills.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-filter]');
+    if (!btn) return;
+    activeFilter = btn.dataset.filter;
+    filterPills.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+    render(currentTasks);
+  });
+}
+
 load().catch((err) => {
   console.error(err);
+  if (window.location.protocol === 'file:') {
+    render(DEMO_FALLBACK_TASKS);
+  }
 });

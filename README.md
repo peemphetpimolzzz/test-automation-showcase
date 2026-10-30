@@ -1,117 +1,89 @@
-# Test Automation Showcase
+# PulseBoard — Sprint Workspace & Five-Layer Test Automation Showcase
 
-A small but complete **test-automation portfolio**: a real system-under-test (SUT)
-wrapped in a full **five-layer test pyramid**. The point of this repo is the tests —
-the application exists to be tested in every meaningful way, from pure functions up
-to a browser and a load generator, all runnable with a single Docker command per
-layer.
+**PulseBoard** is a complete **test-automation engineering showcase**: a real system-under-test (SUT) wrapped in an automated **five-layer quality gate pyramid**. Every layer — from pure domain unit tests up to contract verification, headless Chromium browser E2E, k6 performance load testing, and security baseline checks — runs reproducibly with a single Docker Compose command.
 
 [![CI](https://github.com/peemphetpimolzzz/test-automation-showcase/actions/workflows/ci.yml/badge.svg)](https://github.com/peemphetpimolzzz/test-automation-showcase/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-| Task Board (system under test) | Playwright report — all green |
-|--------------------------------|-------------------------------|
-| ![Task board](docs/screenshots/board.png) | ![Test report](docs/screenshots/report.png) |
+![PulseBoard Sprint Workspace & 5-Layer Quality Gate](docs/screenshots/board.png)
 
-## The system under test
+## The System Under Test (SUT)
 
-A **Tasks API** (Node.js + TypeScript + Express) backed by **better-sqlite3**, plus a
-dependency-free **Task Board** web page served by nginx.
+A **Tasks REST API** (Node.js + TypeScript + Express) backed by **better-sqlite3**, paired with a zero-dependency **PulseBoard Sprint Workspace** web UI served by `nginx`:
 
-- `GET /api/health` — liveness, returns `{ status, uptime }`.
-- `GET /api/tasks` — list tasks (`{ tasks: [...] }`).
-- `POST /api/tasks` — create a task (`{ title, status? }`).
-- `GET /api/tasks/:id` — fetch one.
-- `PATCH /api/tasks/:id` — update title and/or status.
-- `DELETE /api/tasks/:id` — remove a task.
-- `POST /api/_reset` — **test-only**, clears the store; gated by `ENABLE_TEST_RESET=1`.
+- `GET /api/health` — Liveness probe returning `{ status, uptime }`.
+- `GET /api/tasks` — List sprint tasks (`{ tasks: [...] }`).
+- `POST /api/tasks` — Create a task (`{ title, status? }`).
+- `GET /api/tasks/:id` — Fetch a single task by ID.
+- `PATCH /api/tasks/:id` — Update title and/or cycle status (`todo → doing → done → todo`).
+- `DELETE /api/tasks/:id` — Delete a task.
+- `POST /api/_reset` — **Test-only** state reset endpoint; strictly gated by `ENABLE_TEST_RESET=1`.
 
-Validation uses **zod** in strict mode (unknown keys rejected; `status ∈ {todo, doing, done}`).
-Errors always use the envelope `{ "error": { "code", "message" } }`. The Express `app`
-is exported without calling `listen`, so tests can drive it in-process with supertest.
+Validation uses **Zod** in strict mode (unknown keys rejected; `status ∈ {todo, doing, done}`). Errors always follow the structured envelope `{ "error": { "code", "message" } }`. The Express `app` is exported without calling `listen`, enabling fast in-process integration and contract testing with `supertest`.
 
-The web page lets you add a task, see status badges, click a badge to cycle
-`todo → doing → done → todo`, and delete tasks. nginx reverse-proxies `/api` to the
-API so the browser uses a single origin (no CORS).
+The **PulseBoard** UI provides:
+- **Quality Gate Telemetry Strip**: Live status indicators for Playwright E2E, Contract & Schema verification, k6 `p95 < 200ms` SLA, and OWASP baseline security.
+- **Interactive Sprint Task Board**: Create tasks, filter by status (`All Tasks`, `Active`, `Completed`), cycle task status badges (`todo → doing → done → todo`), delete tasks, and switch between `EN / TH` and `Light / Dark` themes.
+- **Live Test Pyramid & Topology Console**: Visualizes the 5-layer quality gate and single-origin `nginx → Express → SQLite` architecture.
 
-## The test pyramid
+## The Five-Layer Test Pyramid
 
-| Layer | Tool | What it covers | Runs against |
+| Layer | Tool | What it verifies | Execution Target |
 | --- | --- | --- | --- |
-| **unit** | vitest | Pure domain logic (status cycle, title validation) + zod accept/reject | in-process, offline |
-| **api / integration** | supertest | Every endpoint, status codes, 400 validation, 404s | in-process Express app, fresh `:memory:` DB per test |
-| **contract** | zod response schemas | Each live response parses against its published schema | in-process Express app |
-| **e2e** | Playwright | A real browser drives the board: add, cycle badge, delete | full Docker stack (web + api) |
-| **load** | k6 | Smoke load with thresholds | API over the compose network |
+| **1. Unit** | `vitest` | Pure domain logic (status state machine, title validation) + strict schema rules | In-process, offline |
+| **2. API / Integration** | `supertest` | Every REST endpoint, status codes, 400 validation errors, 404 handling | In-process Express app, isolated `:memory:` SQLite per test |
+| **3. Contract** | `zod` response schemas | Every live HTTP response parses strictly against its published contract schema | In-process Express app |
+| **4. UI E2E** | `Playwright` | Headless Chromium drives the PulseBoard UI: empty state, create, status cycle, delete | Full Docker stack (`web` + `api`) |
+| **5. Performance / Load** | `k6` | Smoke & ramp load profile enforcing `http_req_duration p(95) < 200ms` and `0%` errors | Live API over Compose network |
 
-## Running it
+## Running Locally
 
-Everything runs in Docker. No local Node, k6, or browsers required.
+Everything runs in Docker — no local Node.js, k6, or browser installation required.
 
 ```sh
 cp .env.example .env
 
-# Bring up the stack (API on :8090, web on :8091 by default)
+# Bring up the stack (API on :8090, PulseBoard Web UI on :8091 by default)
 docker compose up -d --build
 
-# Try it
+# Verify endpoints
 curl http://localhost:8090/api/health
-curl -X POST http://localhost:8090/api/tasks -H 'Content-Type: application/json' -d '{"title":"Read the README"}'
+curl -X POST http://localhost:8090/api/tasks -H 'Content-Type: application/json' -d '{"title":"Verify contract schemas"}'
 curl http://localhost:8090/api/tasks
-# open http://localhost:8091 in a browser
+# Open http://localhost:8091 in a browser
 ```
 
-Each test layer runs via the test overlay:
+Run each quality gate layer via the test overlay:
 
 ```sh
-# Unit tests (offline, reuses the SUT build image)
+# 1. Unit tests (offline, reuses the SUT build image)
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm unit
 
-# API + contract tests (offline, fresh in-memory DB per test)
+# 2. API + Contract tests (offline, fresh in-memory DB per test)
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm apitest
 
-# End-to-end (needs the stack up: docker compose up -d --build)
+# 3. End-to-End Playwright UI tests (against the running stack)
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm e2e
 
-# Smoke load test (needs the stack up)
+# 4. k6 Smoke Load test (against the running stack)
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm k6
 
 # Tear down
 docker compose down -v
 ```
 
-The Playwright HTML report lands in `e2e/playwright-report/`; the k6 metrics summary
-in `load/k6-summary.json`. See [`load/thresholds.md`](load/thresholds.md) for the
-load profile and threshold rationale.
+The Playwright HTML report is written to `e2e/playwright-report/`; the k6 metrics summary is written to `load/k6-summary.json`. See [`load/thresholds.md`](load/thresholds.md) for the load profile and SLA rationale.
 
-## Notes on the Docker setup
+## Architecture & Docker Highlights
 
-- **Uncommon host ports** (API `8090`, web `8091`) avoid clashes with common local
-  services; both are env-overridable. SQLite means there is no database port.
-- The SUT image is **multi-stage**: `better-sqlite3` is a native addon, so it is
-  compiled in a `node:22-bookworm-slim` build stage that carries the toolchain; the
-  runtime stage ships only production dependencies as a non-root user.
-- Unit and API tests **reuse the build stage** (devDependencies and sources present)
-  and run completely offline.
-- Healthchecks are tuned per image: `node -e http.get(...)` for the slim API image
-  (no `wget`), and a busybox-safe `wget -q -O /dev/null` for the nginx web image.
+- **Non-conflicting host ports** (`8090` API, `8091` Web) avoid collisions with standard local dev servers; both are configurable via environment variables.
+- **Multi-stage native build**: `better-sqlite3` is compiled in a `node:22-bookworm-slim` build stage and copied into a minimal non-root production runtime stage.
+- **Offline test stages**: Unit, API, and Contract suites reuse the build stage so they run 100% offline in CI.
 
-## CI
+## Continuous Integration & AWS Deployment
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs unit and API tests in
-parallel, then e2e and load against the built stack, uploading the Playwright report
-and k6 summary as artifacts.
-
-## Deploy to AWS
-
-The Tasks API (system-under-test) also runs in the cloud on **AWS ECS Fargate** behind an Application
-Load Balancer. Infrastructure is defined as Terraform in [`infra/`](infra/), and the
-[`Deploy (AWS)`](.github/workflows/deploy.yml) workflow builds the image, pushes it to ECR,
-and rolls out a new task revision — authenticating with **GitHub OIDC**, so no long-lived
-AWS keys live in the repo. The reset endpoint is disabled (`ENABLE_TEST_RESET=0`) in the
-deployed task.
-
-See [`docs/deployment.md`](docs/deployment.md) for the full walkthrough.
+- **CI Pipeline**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs Unit and API/Contract suites in parallel, boots the Docker stack, executes Playwright E2E and k6 load gates, and uploads test reports as workflow artifacts.
+- **AWS ECS Fargate**: Infrastructure is defined as Terraform in [`infra/`](infra/). The [`Deploy (AWS)`](.github/workflows/deploy.yml) workflow authenticates via **GitHub OIDC** (zero long-lived AWS keys), pushes to Amazon ECR, and rolls out a new ECS task revision with `ENABLE_TEST_RESET=0`. See [`docs/deployment.md`](docs/deployment.md) for details.
 
 ## License
 
